@@ -377,7 +377,7 @@ do
 	Protect(Library.GUI)
 
 	if getgenv then
-		getgenv().edeklibrary = Library.GUI
+		getgenv().mammothlibrary = Library.GUI
 	end
 
 	function Library.AddSignal(property, functions)
@@ -422,7 +422,7 @@ do
 			task.spawn(v)
 		end
 		if getgenv then
-			getgenv().edeklibrary = nil
+			getgenv().mammothlibrary = nil
 		end
 	end
 
