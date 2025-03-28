@@ -24,7 +24,8 @@ local Library = {
 	Info = nil,
 	Position = nil,
 	AutoSave = false,
-	Start = tick()
+	Start = tick(),
+	TimeCount = 0
 }
 
 Library.Parser = {
@@ -419,7 +420,7 @@ do
 			if type(v) ~= "function" then
 				return
 			end
-			task.spawn(v)
+			v()
 		end
 		if getgenv then
 			getgenv().mammothlibrary = nil
@@ -757,10 +758,8 @@ do
 		if Options.Duration and type(Options.Duration) == "number" then
 			task.delay(Options.Duration, s.Close)
 		elseif Options.Duration and type(Options.Duration) == "function" then
-			task.spawn(function()
-				Library.SafeCallback(Options.Duration)
-				s.Close()
-			end)
+			Library.SafeCallback(Options.Duration)
+			s.Close()
 		end
 
 		Library.AddSignal(s.Button.MouseButton1Click, function()
@@ -850,22 +849,30 @@ do
 
 		function t:SaveConfigs()
 			if Library.AutoSave and Options.Save and writefile and isfolder and makefolder then
+				Library.TimeCount += 1
 				local fullPath, DncodePath = Options.Save.."/Configs.json", Options.Save
 
 				local data = {objects = {}}
+				local timex = Library.TimeCount
 
 				for idx, option in next, Library.Options do
 					if not Library.Parser[option.Type] or table.find(Options.Ignore, idx) then
 						continue
 					end
 
+					if Library.TimeCount > timex then
+						break
+					end
+
 					table.insert(data.objects, Library.Parser[option.Type].Save(idx, option))
 				end
-				local success, encoded = pcall(game:GetService "HttpService".JSONEncode, game:GetService "HttpService", data)
-				if not success then
-					return
+				if Library.TimeCount == timex then
+					local success, encoded = pcall(game:GetService "HttpService".JSONEncode, game:GetService "HttpService", data)
+					if not success then
+						return
+					end
+					writefile(fullPath, encoded)
 				end
-				writefile(fullPath, encoded)
 			end
 		end
 
@@ -1849,144 +1856,142 @@ do
 			}
 		)
 
-		task.spawn(function()
-			local sx = 0
-			for o,v in pairs(Options.Menuinfo or {}) do
-				sx += 1
-				local scrollinsert = e("ScrollingFrame",
+		local sx = 0
+		for o,v in pairs(Options.Menuinfo or {}) do
+			sx += 1
+			local scrollinsert = e("ScrollingFrame",
+				{
+					ZIndex = 3,
+					Parent = InfoFrame,
+					ScrollingDirection = Enum.ScrollingDirection.Y,
+					BackgroundTransparency = 1,
+					CanvasSize = UDim2.new(0, 0, 0, 0),
+					ScrollBarImageTransparency = 1,
+					AutomaticCanvasSize = Enum.AutomaticSize.Y,
+					Size = UDim2.fromScale(1, 1),
+					ScrollBarThickness = 1
+				},
+				{
+					e("UICorner", {CornerRadius = UDim.new(0, 8)}),
+					e("UIPadding",
+						{
+							PaddingTop = UDim.new(0, 6),
+							PaddingLeft = UDim.new(0, 6),
+							PaddingRight = UDim.new(0, 6),
+							PaddingBottom = UDim.new(0, 6)
+						}
+					),
+					e("UIListLayout",
+						{
+							Padding = UDim.new(0, 5),
+							SortOrder = Enum.SortOrder.LayoutOrder
+						}
+					)
+				}
+			)
+			Library.Menuinfo[v.Name] = {
+				Text = e("TextButton",
 					{
 						ZIndex = 3,
-						Parent = InfoFrame,
-						ScrollingDirection = Enum.ScrollingDirection.Y,
+						Parent = ScrollVesrion,
+						AutomaticSize = Enum.AutomaticSize.XY,
 						BackgroundTransparency = 1,
-						CanvasSize = UDim2.new(0, 0, 0, 0),
-						ScrollBarImageTransparency = 1,
-						AutomaticCanvasSize = Enum.AutomaticSize.Y,
-						Size = UDim2.fromScale(1, 1),
-						ScrollBarThickness = 1
+						Size = UDim2.new(1, 0, 0, 10),
+						Text = v.Name,
+						TextWrapped = true,
+						TextXAlignment = Enum.TextXAlignment.Center,
+						FontFace = Font.new([[rbxasset://fonts/families/SourceSansPro.json]], Enum.FontWeight.Bold, Enum.FontStyle.Normal),
+						TextColor3 = Color3.fromRGB(235, 235, 235),
+						RichText = true,
+						TextSize = 14
 					},
 					{
 						e("UICorner", {CornerRadius = UDim.new(0, 8)}),
-						e("UIPadding",
+						e("UIStroke",
 							{
-								PaddingTop = UDim.new(0, 6),
-								PaddingLeft = UDim.new(0, 6),
-								PaddingRight = UDim.new(0, 6),
-								PaddingBottom = UDim.new(0, 6)
+								ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+								Color = Color3.fromRGB(100, 100, 100),
+								Thickness = 1
 							}
-						),
-						e("UIListLayout",
+						)
+					}
+				),
+				Container = e("Frame",
+					{
+						ZIndex = 3,
+						Visible = false,
+						Parent = InfoFrame,
+						Size = UDim2.new(0.8, -8, 1, 0),
+						BackgroundTransparency =1
+					},
+					{
+						scrollinsert,
+						e("UICorner", {CornerRadius = UDim.new(0, 8)}),
+						e("UIStroke",
 							{
-								Padding = UDim.new(0, 5),
-								SortOrder = Enum.SortOrder.LayoutOrder
+								ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+								Color = Color3.fromRGB(100, 100, 100),
+								Thickness = 1
 							}
 						)
 					}
 				)
-				Library.Menuinfo[v.Name] = {
-					Text = e("TextButton",
-						{
-							ZIndex = 3,
-							Parent = ScrollVesrion,
-							AutomaticSize = Enum.AutomaticSize.XY,
-							BackgroundTransparency = 1,
-							Size = UDim2.new(1, 0, 0, 10),
-							Text = v.Name,
-							TextWrapped = true,
-							TextXAlignment = Enum.TextXAlignment.Center,
-							FontFace = Font.new([[rbxasset://fonts/families/SourceSansPro.json]], Enum.FontWeight.Bold, Enum.FontStyle.Normal),
-							TextColor3 = Color3.fromRGB(235, 235, 235),
-							RichText = true,
-							TextSize = 14
-						},
-						{
-							e("UICorner", {CornerRadius = UDim.new(0, 8)}),
-							e("UIStroke",
-								{
-									ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-									Color = Color3.fromRGB(100, 100, 100),
-									Thickness = 1
-								}
-							)
-						}
-					),
-					Container = e("Frame",
-						{
-							ZIndex = 3,
-							Visible = false,
-							Parent = InfoFrame,
-							Size = UDim2.new(0.8, -8, 1, 0),
-							BackgroundTransparency =1
-						},
-						{
-							scrollinsert,
-							e("UICorner", {CornerRadius = UDim.new(0, 8)}),
-							e("UIStroke",
-								{
-									ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-									Color = Color3.fromRGB(100, 100, 100),
-									Thickness = 1
-								}
-							)
-						}
-					)
-				}
+			}
 
-				if ScrollChanlog then
-					ScrollChanlog.Parent:Destroy()
-					ScrollChanlog = nil
-				end
-				if not Library.Info and sx >= #(Options.Menuinfo or {}) then
-						Library.Info = Library.Menuinfo[v.Name]
-				end
-				for h = 1, #v.Content do
-					e("TextLabel",
-						{
-							ZIndex = 3,
-							Parent = scrollinsert,
-							AutomaticSize = Enum.AutomaticSize.Y,
-							BackgroundTransparency = 1,
-							Size = UDim2.new(1, 0, 0, 18),
-							Text = v.Content[h].Title,
-							TextWrapped = true,
-							TextXAlignment = Enum.TextXAlignment.Left,
-							FontFace = Font.new([[rbxasset://fonts/families/SourceSansPro.json]], Enum.FontWeight.Bold, Enum.FontStyle.Normal),
-							TextColor3 = Color3.fromRGB(235, 235, 235),
-							RichText = true,
-							TextSize = 16
-						}
-					)
-					e("TextLabel",
-						{
-							ZIndex = 3,
-							Parent = scrollinsert,
-							AutomaticSize = Enum.AutomaticSize.Y,
-							BackgroundTransparency = 1,
-							Size = UDim2.new(1, 0, 0, 16),
-							Text = v.Content[h].SubTitle,
-							TextWrapped = true,
-							TextXAlignment = Enum.TextXAlignment.Left,
-							FontFace = Font.new([[rbxasset://fonts/families/SourceSansPro.json]], Enum.FontWeight.Bold, Enum.FontStyle.Normal),
-							TextColor3 = Color3.fromRGB(175, 175, 175),
-							RichText = true,
-							TextSize = 14
-						}
-					)
-				end
-				Library.AddSignal(Library.Menuinfo[v.Name].Text.MouseButton1Click, function()
-					for h,d in next, Library.Menuinfo do
-						d.Container.Visible = false
-						d.Text.TextColor3 = Color3.fromRGB(235, 235, 235)
-					end
-					Library.Menuinfo[v.Name].Container.Visible = true
-					Library.Menuinfo[v.Name].Text.TextColor3 = Color3.fromRGB(82, 255, 255)
-				end)
+			if ScrollChanlog then
+				ScrollChanlog.Parent:Destroy()
+				ScrollChanlog = nil
 			end
-			if Library.Info then
-				Library.Info.Container.Visible = true
-				Library.Info.Text.TextColor3 = Color3.fromRGB(82, 255, 255)
+			if not Library.Info and sx >= #(Options.Menuinfo or {}) then
+					Library.Info = Library.Menuinfo[v.Name]
 			end
-		end)
+			for h = 1, #v.Content do
+				e("TextLabel",
+					{
+						ZIndex = 3,
+						Parent = scrollinsert,
+						AutomaticSize = Enum.AutomaticSize.Y,
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 0, 18),
+						Text = v.Content[h].Title,
+						TextWrapped = true,
+						TextXAlignment = Enum.TextXAlignment.Left,
+						FontFace = Font.new([[rbxasset://fonts/families/SourceSansPro.json]], Enum.FontWeight.Bold, Enum.FontStyle.Normal),
+						TextColor3 = Color3.fromRGB(235, 235, 235),
+						RichText = true,
+						TextSize = 16
+					}
+				)
+				e("TextLabel",
+					{
+						ZIndex = 3,
+						Parent = scrollinsert,
+						AutomaticSize = Enum.AutomaticSize.Y,
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 0, 16),
+						Text = v.Content[h].SubTitle,
+						TextWrapped = true,
+						TextXAlignment = Enum.TextXAlignment.Left,
+						FontFace = Font.new([[rbxasset://fonts/families/SourceSansPro.json]], Enum.FontWeight.Bold, Enum.FontStyle.Normal),
+						TextColor3 = Color3.fromRGB(175, 175, 175),
+						RichText = true,
+						TextSize = 14
+					}
+				)
+			end
+			Library.AddSignal(Library.Menuinfo[v.Name].Text.MouseButton1Click, function()
+				for h,d in next, Library.Menuinfo do
+					d.Container.Visible = false
+					d.Text.TextColor3 = Color3.fromRGB(235, 235, 235)
+				end
+				Library.Menuinfo[v.Name].Container.Visible = true
+				Library.Menuinfo[v.Name].Text.TextColor3 = Color3.fromRGB(82, 255, 255)
+			end)
+		end
+		if Library.Info then
+			Library.Info.Container.Visible = true
+			Library.Info.Text.TextColor3 = Color3.fromRGB(82, 255, 255)
+		end
 
 		Library.AddSignal(Youtube.MouseButton1Click, function()
 			if not setclipboard then
@@ -2901,9 +2906,7 @@ do
 					   SliderInput.TextBox.Text = SliderInput.TextBox.Text:split(".")[1]
 					end
 					s:SetValue(SliderInput.TextBox.Text)
-					task.spawn(function()
-						t:SaveConfigs()
-					end)
+					t:SaveConfigs()
 				end)
 
 				Library.AddSignal(SliderLine.Frame.ImageLabel.InputBegan, function(input)
@@ -2922,9 +2925,7 @@ do
 					if drag and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 						local value = math.clamp((input.Position.X - SliderLine.Frame.AbsolutePosition.X) / SliderLine.Frame.AbsoluteSize.X, 0, 1)
 						s:SetValue(s.Min + ((s.Max - s.Min) * value))
-						task.spawn(function()
-							t:SaveConfigs()
-						end)
+						t:SaveConfigs()
 					end
 				end)
 
@@ -2967,9 +2968,7 @@ do
 
 				s:SetValue(s.Value)
 				Library.AddConfigs(n, s)
-				task.spawn(function()
-					t:SaveConfigs()
-				end)
+				t:SaveConfigs()
 				return s
 			end
 
@@ -3077,16 +3076,12 @@ do
 				if s.Finished then
 					Library.AddSignal(Input.FocusLost, function()
 						s:SetValue(Input.Text)
-						task.spawn(function()
-							t:SaveConfigs()
-						end)
+						t:SaveConfigs()
 					end)
 				else
 					Library.AddSignal(Input:GetPropertyChangedSignal("Text"), function()
 						s:SetValue(Input.Text)
-						task.spawn(function()
-							t:SaveConfigs()
-						end)
+						t:SaveConfigs()
 					end)
 				end
 
@@ -3100,9 +3095,7 @@ do
 
 				s:SetValue(s.Value)
 				Library.AddConfigs(n, s)
-				task.spawn(function()
-					t:SaveConfigs()
-				end)
+				t:SaveConfigs()
 				return s
 			end
 
@@ -3171,9 +3164,7 @@ do
 						return
 					end
 					s:SetValue(not s.Value)
-					task.spawn(function()
-						t:SaveConfigs()
-					end)
+					t:SaveConfigs()
 				end)
 
 				function s:SetValue(value)
@@ -3206,9 +3197,7 @@ do
 
 				s:SetValue(s.Value)
 				Library.AddConfigs(n, s)
-				task.spawn(function()
-					t:SaveConfigs()
-				end)
+				t:SaveConfigs()
 				return s
 			end
 
@@ -3217,6 +3206,8 @@ do
 				local s = {
 					Name = n,
 					List = l.List,
+					ListTitle = l.ListTitle or {},
+					ListImage = l.ListImage or {},
 					Frame = d.Frame,
 					Multi = l.Multi,
 					Value = l.Multi and {} or nil,
@@ -3701,9 +3692,7 @@ do
 				end
 
 				function s.UpdateTextDisplay()
-					task.spawn(function()
-						t:SaveConfigs()
-					end)
+					t:SaveConfigs()
 					if s.Multi and s.Value then
 						local text = l.Placeholder or "N/A"
 						if #s.GetActiveValues() > 0 then
@@ -3827,11 +3816,69 @@ do
 									)
 								}
 							)
+							Library.Dropdown[n].List[f].SubTitle = e("TextLabel",
+								{
+									ZIndex = 3,
+									Name = "SubTitle",
+									TextXAlignment = Enum.TextXAlignment.Left,
+									TextSize = 14,
+									FontFace = Font.new([[rbxasset://fonts/families/SourceSansPro.json]], Enum.FontWeight.Bold, Enum.FontStyle.Normal),
+									TextColor3 = Color3.fromRGB(115, 115, 115),
+									RichText = true,
+									Size = UDim2.new(1, 0, 0, 14),
+									BackgroundTransparency = 1,
+									Text = s.ListTitle[f] or "",
+									AutomaticSize = Enum.AutomaticSize.Y,
+									TextWrapped = true,
+									Visible = s.ListTitle[f] and true or false
+								},
+								{
+									e("UICorner", {CornerRadius = UDim.new(0, 8)})
+								}
+							)
+							Library.Dropdown[n].List[f].MainTexts = e("Frame",
+								{
+									ZIndex = 3,
+									Size = UDim2.new(1, (s.ListImage[f] and -105 or -50), 1, 0),
+									Position = UDim2.fromOffset((s.ListImage[f] and 65 or 10), 0),
+									BackgroundTransparency = 1,
+									Name = "Text"
+								},
+								{
+									e("UIPadding",
+										{
+											PaddingTop = UDim.new(0, (s.ListImage[f] and 15 or 10)),
+											PaddingBottom = UDim.new(0, (s.ListImage[f] and 15 or 10))
+										}
+									),
+									e("UIListLayout", {Padding = UDim.new(0, 2)}),
+									e("TextLabel",
+										{
+											ZIndex = 3,
+											Name = "Title",
+											TextXAlignment = Enum.TextXAlignment.Left,
+											TextSize = 15,
+											FontFace = Font.new([[rbxasset://fonts/families/SourceSansPro.json]], Enum.FontWeight.Bold, Enum.FontStyle.Normal),
+											TextColor3 = Color3.fromRGB(200, 200, 200),
+											RichText = true,
+											Size = UDim2.new(1, 0, 0, 14),
+											BackgroundTransparency = 1,
+											Text = f,
+											AutomaticSize = Enum.AutomaticSize.Y,
+											TextWrapped = true
+										},
+										{
+											e("UICorner", {CornerRadius = UDim.new(0, 8)})
+										}
+									),
+									Library.Dropdown[n].List[f].SubTitle
+								}
+							)
 							Library.Dropdown[n].List[f].Container = e("TextButton",
 								{
 									ZIndex = 3,
 									Parent = DropdownFrame,
-									Size = UDim2.new(1, -10, 0, 30),
+									Size = UDim2.new(1, -10, 0, (s.ListImage[f] and 55 or 30)),
 									AutomaticSize = Enum.AutomaticSize.Y,
 									BackgroundTransparency = 1,
 									Text = ""
@@ -3852,27 +3899,28 @@ do
 											PaddingBottom = UDim.new(0, 4)
 										}
 									),
-									e("TextLabel",
-										{
-											ZIndex = 3,
-											FontFace = Font.new([[rbxasset://fonts/families/SourceSansPro.json]], Enum.FontWeight.Bold, Enum.FontStyle.Normal),
-											Text = f,
-											TextColor3 = Color3.fromRGB(200, 200, 200),
-											TextSize = 14,
-											TextXAlignment = Enum.TextXAlignment.Left,
-											BackgroundTransparency = 1,
-											Size = UDim2.new(1, -50, 1, 0),
-											Position = UDim2.fromOffset(10, 0),
-											AutomaticSize = Enum.AutomaticSize.Y,
-											RichText = true,
-											TextWrapped = true
-										},
-										{
-											e("UICorner", {CornerRadius = UDim.new(0, 8)})
-										}
-									)
+									Library.Dropdown[n].List[f].MainTexts
 								}
 							)
+							if s.ListImage[f] then
+								e("ImageLabel",
+									{
+										ZIndex = 3,
+										Parent = Library.Dropdown[n].List[f].Container,
+										BackgroundColor3 = s.ListImage[f].BackgroundColor3 or Color3.fromRGB(255, 255, 255),
+										BackgroundTransparency = s.ListImage[f].BackgroundTransparency or false,
+										AnchorPoint = Vector2.new(0, 0.5),
+										Position = UDim2.new(0, 10, 0.5, 0),
+										Size = UDim2.fromOffset(45, 45),
+										Image = s.ListImage[f].Image:find("rbxassetid://") and s.ListImage[f].Image or ("rbxassetid://"..tostring(s.ListImage[f].Image)),
+										ScaleType = Enum.ScaleType.Fit,
+										ImageColor3 = s.ListImage[f].ImageColor3 or Color3.fromRGB(255, 255, 255)
+									},
+									{
+										e("UICorner", {CornerRadius = UDim.new(0, 6)})
+									}
+								)
+							end
 							if type(v) == "table" then
 								Library.Dropdown[n].List[f].SliderLine = e("Frame",
 									{
@@ -3969,7 +4017,7 @@ do
 									}
 								)
 
-								Library.Dropdown[n].List[f].Container.TextLabel.Size = UDim2.new(1, -155, 1, 0)
+								Library.Dropdown[n].List[f].MainTexts.Size = UDim2.new(1, (s.ListImage[f] and -250 or -190), 1, 0)
 								local W, K, D, T = Library.Dropdown[n].List[f].SliderLine, Library.Dropdown[n].List[f].SliderInput, false, s.List[f]
 
 								Library.Dropdown[n].List[f].SliderChanged = function(value)
@@ -4033,7 +4081,7 @@ do
 								end)
 							end
 							local y = Library.Dropdown[n].List
-							local Y = type(v) == "table" and Library.Dropdown[n].List[f].Container.TextLabel or Library.Dropdown[n].List[f].Container
+							local Y = type(v) == "table" and Library.Dropdown[n].List[f].MainTexts or Library.Dropdown[n].List[f].Container
 							Library.AddSignal(Y.InputBegan, function(input)
 								if (input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch) or s:LockState() then
 									return
@@ -4129,6 +4177,87 @@ do
 					DropdownFrame.Parent.Size = UDim2.new(1, 0, 1, -(Titleinfo.TextBounds.Y + textdesb + 30))
 				end)
 
+				function s:AddListImage(list)
+					for i,v in next, list or {} do
+						s.ListImage[i] = v
+					end
+					for i,v in next, s.ListImage do
+						if Library.Dropdown[n].List[i] then
+							if Library.Dropdown[n].List[i].Container:FindFirstChild("ImageLabel") == nil then
+								e("ImageLabel",
+									{
+										ZIndex = 3,
+										Parent = Library.Dropdown[n].List[i].Container,
+										BackgroundColor3 = v.BackgroundColor3 or Color3.fromRGB(255, 255, 255),
+										BackgroundTransparency = v.BackgroundTransparency or false,
+										AnchorPoint = Vector2.new(0, 0.5),
+										Position = UDim2.new(0, 10, 0.5, 0),
+										Size = UDim2.fromOffset(45, 45),
+										Image = v.Image:find("rbxassetid://") and v.Image or ("rbxassetid://"..tostring(v.Image)),
+										ScaleType = Enum.ScaleType.Fit,
+										ImageColor3 = v.ImageColor3 or Color3.fromRGB(255, 255, 255)
+									},
+									{
+										e("UICorner", {CornerRadius = UDim.new(0, 6)})
+									}
+								)
+							else
+								Library.Dropdown[n].List[i].Container:FindFirstChild("ImageLabel").Image = v.Image:find("rbxassetid://") and v.Image or ("rbxassetid://"..tostring(v.Image))
+							end
+						end
+					end
+					for i,v in next, s.List do
+						local f = type(i) == "string" and i or v
+
+						if Library.Dropdown[n].List[f] then
+							Library.Dropdown[n].List[f].Container.Size = UDim2.new(1, -10, 0, (s.ListImage[f] and 55 or 30))
+							Library.Dropdown[n].List[f].MainTexts.Size = UDim2.new(1, (s.ListImage[f] and -105 or -50), 1, 0)
+							Library.Dropdown[n].List[f].MainTexts.Position = UDim2.fromOffset((s.ListImage[f] and 65 or 10), 0)
+							Library.Dropdown[n].List[f].MainTexts.UIPadding.PaddingTop = UDim.new(0, (s.ListImage[f] and 15 or 10))
+							Library.Dropdown[n].List[f].MainTexts.UIPadding.PaddingBottom = UDim.new(0, (s.ListImage[f] and 15 or 10))
+
+							if type(i) == "string" then
+								Library.Dropdown[n].List[f].MainTexts.Size = UDim2.new(1, (s.ListImage[f] and -250 or -190), 1, 0)
+							end
+							if Library.Dropdown[n].List[f].Container:FindFirstChild("ImageLabel") then
+								Library.Dropdown[n].List[f].Container:FindFirstChild("ImageLabel").Visible = s.ListImage[f] and true or false
+							end
+						end
+					end
+				end
+
+				function s:AddListTitle(list)
+					for i,v in next, list or {} do
+						if Library.Dropdown[n].List[i] then
+							s.ListTitle[i] = v
+							Library.Dropdown[n].List[i].SubTitle.Text = v
+							Library.Dropdown[n].List[i].SubTitle.Visible = true
+						end
+					end
+					for i,v in next, s.List do
+						local f = type(i) == "string" and i or v
+						if Library.Dropdown[n].List[f] then
+							if not s.ListTitle[f] or s.ListTitle[f] == "" then
+								Library.Dropdown[n].List[f].SubTitle.Visible = false
+							end
+						end
+					end
+				end
+
+				function s:ClearListImage(list)
+					for i,v in next, list or {} do
+						s.ListImage[v] = nil
+					end
+					s:AddListImage()
+				end
+
+				function s:ClearListTitle(list)
+					for i,v in next, list or {} do
+						s.ListTitle[v] = nil
+					end
+					s:AddListTitle()
+				end
+
 				function s:NewList(list)
 					local concatlist = {}
 					for o,v in next, list do
@@ -4207,68 +4336,76 @@ do
 						for o,v in next, value do
 							if type(o) == "string" and s.List[o] then
 								if s.Multi then
-									if s.Value then
-										for ee,vv in next, s.Value do
-											if type(ee) == "string" and not value[ee] then
-												s.Value[ee] = nil
-												ToggleVisible(ee, false)
-												s.MultiValue[ee] = false
+									if type(v) == "number" then
+										Library.Dropdown[n].List[o].SliderChanged(v)
+									elseif type(v) == "table" then
+										if s.Value then
+											for ee,vv in next, s.Value do
+												if type(ee) == "string" and not value[ee] then
+													s.Value[ee] = nil
+													ToggleVisible(ee, false)
+													s.MultiValue[ee] = false
+												end
 											end
 										end
-									end
-									s.Value[o] = {}
-									for ll,dd in next, v do
-										s.Value[o][ll] = dd
-									end
-									do
-										s.Value[o].Min = s.Value[o].Min or 0
-										s.Value[o].Max = s.Value[o].Max or 10
-										s.Value[o].Name = s.Value[o].Name or o
-										s.Value[o].Value = s.Value[o].Value or false
-										s.Value[o].Number = s.Value[o].Number or 0
-										s.Value[o].Rounding = s.Value[o].Rounding or 0
-									end
-									Library.Dropdown[n].List[o].SliderChanged(s.Value[o].Number)
+										s.Value[o] = {}
+										for ll,dd in next, v do
+											s.Value[o][ll] = dd
+										end
+										do
+											s.Value[o].Min = s.Value[o].Min or 0
+											s.Value[o].Max = s.Value[o].Max or 10
+											s.Value[o].Name = s.Value[o].Name or o
+											s.Value[o].Value = s.Value[o].Value or false
+											s.Value[o].Number = s.Value[o].Number or 0
+											s.Value[o].Rounding = s.Value[o].Rounding or 0
+										end
+										Library.Dropdown[n].List[o].SliderChanged(s.Value[o].Number)
 
-									if s.Value[o].Value then
-										ToggleVisible(o, true)
-										s.MultiValue[o] = true
-									else
-										s.Value[o] = nil
-										ToggleVisible(o, false)
-										s.MultiValue[o] = false
-									end
-								else
-									if s.Value then
-										if type(s.Value) == "table" then
-											ToggleVisible(s.Value.Name, false)
-											s.MultiValue[s.Value.Name] = false
+										if s.Value[o].Value then
+											ToggleVisible(o, true)
+											s.MultiValue[o] = true
 										else
-											ToggleVisible(s.Value, false)
-											s.MultiValue[s.Value] = false
+											s.Value[o] = nil
+											ToggleVisible(o, false)
+											s.MultiValue[o] = false
 										end
 									end
-									s.Value = {}
-									for ll,dd in next, v do
-										s.Value[ll] = dd
-									end
-									do
-										s.Value.Min = s.Value.Min or 0
-										s.Value.Max = s.Value.Max or 10
-										s.Value.Name = s.Value.Name or o
-										s.Value.Value = s.Value.Value or false
-										s.Value.Number = s.Value.Number or 0
-										s.Value.Rounding = s.Value.Rounding or 0
-									end
-									Library.Dropdown[n].List[o].SliderChanged(s.Value.Number)
+								else
+									if type(v) == "number" then
+										Library.Dropdown[n].List[o].SliderChanged(v)
+									elseif type(v) == "table" then
+										if s.Value then
+											if type(s.Value) == "table" then
+												ToggleVisible(s.Value.Name, false)
+												s.MultiValue[s.Value.Name] = false
+											else
+												ToggleVisible(s.Value, false)
+												s.MultiValue[s.Value] = false
+											end
+										end
+										s.Value = {}
+										for ll,dd in next, v do
+											s.Value[ll] = dd
+										end
+										do
+											s.Value.Min = s.Value.Min or 0
+											s.Value.Max = s.Value.Max or 10
+											s.Value.Name = s.Value.Name or o
+											s.Value.Value = s.Value.Value or false
+											s.Value.Number = s.Value.Number or 0
+											s.Value.Rounding = s.Value.Rounding or 0
+										end
+										Library.Dropdown[n].List[o].SliderChanged(s.Value.Number)
 
-									if s.Value.Value then
-										ToggleVisible(o, true)
-										s.MultiValue[o] = true
-									else
-										s.Value = nil
-										ToggleVisible(o, false)
-										s.MultiValue[o] = false
+										if s.Value.Value then
+											ToggleVisible(o, true)
+											s.MultiValue[o] = true
+										else
+											s.Value = nil
+											ToggleVisible(o, false)
+											s.MultiValue[o] = false
+										end
 									end
 								end
 							elseif type(v) == "string" and table.find(s.List, v) and not table.find(s.Value, v) then
@@ -4282,14 +4419,46 @@ do
 									end
 								end
 								if s.Multi then
-									ToggleVisible(v, true)
 									table.insert(s.Value, v)
+									ToggleVisible(v, true)
 									s.MultiValue[v] = true
 								else
 									s.Value = v
 									ToggleVisible(v, true)
 									s.MultiValue[v] = true
 									break
+								end
+							elseif type(v) == "string" and s.List[v] and not s.Value[v] then
+								if s.Value then
+									for ee,vv in next, s.Value do
+										if type(ee) == "string" and not table.find(value, ee) then
+											s.Value[ee] = nil
+											ToggleVisible(ee, false)
+											s.MultiValue[ee] = false
+										end
+									end
+								end
+								if s.Multi then
+									s.Value[v] = s.List[v]
+									s.Value[v].Value = true
+									ToggleVisible(v, true)
+									s.MultiValue[v] = true
+								else
+									s.Value = s.List[v]
+									s.Value[v].Value = true
+									ToggleVisible(v, true)
+									s.MultiValue[v] = true
+									break
+								end
+							elseif type(v) == "string" and s.List[v] and s.Value[v] then
+								if s.Value then
+									for ee,vv in next, s.Value do
+										if type(ee) == "string" and not table.find(value, ee) then
+											s.Value[ee] = nil
+											ToggleVisible(ee, false)
+											s.MultiValue[ee] = false
+										end
+									end
 								end
 							elseif type(v) == "string" and table.find(s.List, v) and table.find(s.Value, v) then
 								local ew = {}
@@ -4313,6 +4482,16 @@ do
 								s.MultiValue[real] = false
 							end
 							s.Value = nil
+						elseif s.List[value] then
+							if s.Value then
+								local real = type(s.Value) == "table" and s.Value.Name or s.Value
+								ToggleVisible(real, false)
+								s.MultiValue[real] = false
+							end
+							s.Value = s.List[value]
+							s.Value.Value = true
+							ToggleVisible(s.Value.Name, true)
+							s.MultiValue[s.Value.Name] = true
 						elseif table.find(s.List, value) then
 							if s.Value then
 								local real = type(s.Value) == "table" and s.Value.Name or s.Value
@@ -4483,11 +4662,9 @@ do
 									Text.TextColor3 = Color3.fromRGB(200, 200, 200)
 									en:Disconnect()
 									ec:Disconnect()
-									task.spawn(function()
-										t:SaveConfigs()
-									end)
 									Library.SafeCallback(changedD, value.KeyCode or value.UserInputType)
 									Library.SafeCallback(l.Callback, value.KeyCode or value.UserInputType)
+									t:SaveConfigs()
 								end
 							end)
 						end)
@@ -4549,11 +4726,9 @@ do
 					else
 						Text.TextColor3 = Color3.fromRGB(200, 200, 200)
 					end
-					task.spawn(function()
-						t:SaveConfigs()
-					end)
 					s.Value = value
 					s.Mode = mode
+					t:SaveConfigs()
 				end
 				function s:DoClick()
 					if not s.Value then
@@ -4626,9 +4801,7 @@ do
 
 					s.Value = Color3.fromHSV(C, D, E)
 
-					task.spawn(function()
-						t:SaveConfigs()
-					end)
+					t:SaveConfigs()
 				end
 				s.SetHSVFromRGB(s.Value)
 
@@ -5113,9 +5286,7 @@ do
 
 					ColorPickerFrame.Parent.Size = UDim2.new(1, 0, 1, -(Titleinfo.TextBounds.Y + textdesb + 30))
 
-					task.spawn(function()
-						t:SaveConfigs()
-					end)
+					t:SaveConfigs()
 				end
 
 				Library.AddSignal(Titleinfo.Changed, function()
@@ -5458,7 +5629,7 @@ do
 			if Tab == Library.SelectTab then
 				return
 			end
-			task.spawn(function()
+			task.defer(function()
 				repeat
 					SearchbarInput.Text = ""
 					task.wait()
