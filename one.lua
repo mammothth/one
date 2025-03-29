@@ -409,6 +409,9 @@ do
 
 	function Library:Destroy()
 		Library.Unloaded = true
+		if getgenv then
+			getgenv().mammothlibrary = nil
+		end
 		if Library.GUI.Parent then
 			Library.GUI:Destroy()
 		end
@@ -421,9 +424,6 @@ do
 				return
 			end
 			v()
-		end
-		if getgenv then
-			getgenv().mammothlibrary = nil
 		end
 	end
 
@@ -4482,16 +4482,6 @@ do
 								s.MultiValue[real] = false
 							end
 							s.Value = nil
-						elseif s.List[value] then
-							if s.Value then
-								local real = type(s.Value) == "table" and s.Value.Name or s.Value
-								ToggleVisible(real, false)
-								s.MultiValue[real] = false
-							end
-							s.Value = s.List[value]
-							s.Value.Value = true
-							ToggleVisible(s.Value.Name, true)
-							s.MultiValue[s.Value.Name] = true
 						elseif table.find(s.List, value) then
 							if s.Value then
 								local real = type(s.Value) == "table" and s.Value.Name or s.Value
@@ -4501,6 +4491,16 @@ do
 							s.Value = value
 							ToggleVisible(s.Value, true)
 							s.MultiValue[s.Value] = true
+						elseif s.List[value] and not table.find(s.List, value) then
+							if s.Value then
+								local real = type(s.Value) == "table" and s.Value.Name or s.Value
+								ToggleVisible(real, false)
+								s.MultiValue[real] = false
+							end
+							s.Value = s.List[value]
+							s.Value.Value = true
+							ToggleVisible(s.Value.Name, true)
+							s.MultiValue[s.Value.Name] = true
 						elseif type(value) == "number" and s.List[value] then
 							if s.Value then
 								local real = type(s.Value) == "table" and s.Value.Name or s.Value
