@@ -4491,7 +4491,7 @@ do
 							s.Value = value
 							ToggleVisible(s.Value, true)
 							s.MultiValue[s.Value] = true
-						elseif s.List[value] and not table.find(s.List, value) then
+						elseif type(value) == "string" and s.List[value] then
 							if s.Value then
 								local real = type(s.Value) == "table" and s.Value.Name or s.Value
 								ToggleVisible(real, false)
